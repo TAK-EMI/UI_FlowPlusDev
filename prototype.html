@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>React SVG</title>
+	<script crossorigin src="https://unpkg.com/react@16/umd/react.development.js"></script>
+	<script crossorigin src="https://unpkg.com/react-dom@16/umd/react-dom.development.js"></script>
+	<script src="https://unpkg.com/@babel/standalone@7.9.3/babel.min.js"></script>
+	<style>
+		.canvas {
+			width: 100%;
+		}
+	</style>
+</head>
+<body>
+	<div id="root"></div>
+	<script type="text/babel"></script>
+	<script type="text/babel">
+		class Rect
+		{
+			#_w = 0;
+			#_h = 0;
+			constructor(w, h)
+			{
+				this.#_w = w;
+				this.#_h = h;
+			}
+
+			get W()
+			{
+				return this.#_w;
+			}
+			get Width()
+			{
+				return this.#_w;
+			}
+			get H()
+			{
+				return this.#_h;
+			}
+			get Height()
+			{
+				return this.#_h;
+			}
+		}
+		function calcStringRect(text)
+		{
+			const span = document.createElement('span');
+			span.innerText = text;
+			span.style.visibility = 'hidden';
+			document.body.appendChild(span);
+			// offsetWidthができたらすぐに消す
+			setTimeout(() => {
+				document.body.removeChild(span);
+			}, 0);
+
+			return new Rect(span.offsetWidth || 0, span.offsetHeight || 0);
+		}
+	</script>
+	<script type="text/babel">
+		class ViewItemModel
+		{
+			#_type = null;
+			#_text = null;
+			constructor(obj)
+			{
+				this.#_type = obj.type;
+				this.#_text = obj.text;
+			}
+
+			get Label() {
+				return `+ ${this.#_text}: ${this.#_type}`;
+			}
+			get TextRect() {
+				return calcStringRect(this.Label);
+			}
+			get TextWidth() {
+				return this.TextRect.Width;
+			}
+		}
+		class ViewActionModel
+		{
+			#_itemName = null;
+			#_event = null;
+			#_nextView = null;
+			constructor(obj)
+			{
+				this.#_itemName = obj.item;
+				this.#_event = obj.event;
+				this.#_nextView = obj.next;
+			}
+
+			get Label()
+			{
+				return `${ this.#_event } by ${this.#_itemName} to ${this.#_nextView}`;
+			}
+			get TextRect() {
+				return calcStringRect(this.Label);
+			}
+			get TextWidth() {
+				return this.TextRect.Width;
+			}
+		}
+		class ViewHeaderModel
+		{
+			#_id = null;
+			#_title = null;
+			constructor(id, title)
+			{
+				this.#_id = id;
+				this.#_title = title;
+			}
+
+			get Height()
+			{
+				return this.IdTextRect.Height + this.TitleTextRect.Height;
+			}
+
+			get ID()
+			{
+				return this.#_id;
+			}
+			get Title()
+			{
+				return this.#_title;
+			}
+
+			get IdTextRect()
+			{
+				return calcStringRect(this.ID)
+			}
+			get IdTextWidth()
+			{
+				return this.IdTextRect.Width;
+			}
+			get TitleTextRect()
+			{
+				return calcStringRect(this.Title);
+			}
+			get TitleTextWidth()
+			{
+				return this.TitleTextRect.Width;
+			}
+			get TextWidth()
+			{
+				return Math.max(this.IdTextWidth, this.TitleTextWidth);
+			}
+		}
+		class ViewBodyModel
+		{
+			#_items = null;
+			#_actions = null;
+			constructor(items, actions)
+			{
+				this.#_items = items && Object.fromEntries(Object.entries(items).map(([key, item]) => [key, new ViewItemModel(item)]));
+				this.#_actions = actions && Object.fromEntries(Object.entries(actions).map(([key, act]) => [key, new ViewItemModel(act)]));
+			}
+
+			get RawItemList()
+			{
+				return this.#_items;
+			}
+			get ItemIdList()
+			{
+				return this.#_items && Object.keys(this.#_items);
+			}
+			get ItemList()
+			{
+				return this.#_items && Object.values(this.#_items);
+			}
+
+			get RawActionList()
+			{
+				return this.#_actions;
+			}
+			get ActionIdList()
+			{
+				return this.#_actions && Object.keys(this.#_actions);
+			}
+			get ActionList()
+			{
+				return this.#_actions && Object.values(this.#_actions);
+			}
+
+			get TextWidth()
+			{
+				let item = this.ItemList?.reduce((a,b) => Math.max(a.TextWidth, b.TextWidth)).TextWidth || 0;
+				let action = this.ActionList?.reduce((a,b) => Math.map(a.TextWidth, b.TextWidth)).TextWidth || 0;
+
+				return Math.max(item, action);
+			}
+
+			getItem(key)
+			{
+				return this.#_items && this.#_items[key];
+			}
+			getAction(key)
+			{
+				return this.#_actions && this.#_actions;
+			}
+		}
+		class ViewDataModel
+		{
+			#_header = null;
+			#_body = null;
+			constructor(obj)
+			{
+				this.#_header = new ViewHeaderModel(obj.id, obj.title);
+				this.#_body = new ViewBodyModel(obj.items, obj.actions);
+			}
+
+			get Width()
+			{
+				return this.TextWidth;
+			}
+			get Height()
+			{
+				return 100;
+			}
+
+			get Header()
+			{
+				return this.#_header;
+			}
+			get Items()
+			{
+				return this.#_body.RawItemList;
+			}
+			get ItemList()
+			{
+				return this.#_body.ItemList;
+			}
+			get Actions()
+			{
+				return this.#_body.RawActionList;
+			}
+			get ActionList()
+			{
+				return this.#_body.ActionList;
+			}
+
+			get ItemTextWidth()
+			{
+				return this.ItemList?.map((item) => item.TextWidth).reduce((a,b) => Math.max(a, b)) || 0;
+			}
+			get ActionTextWidth()
+			{
+				return this.ActionList?.map(item => item.TextWidth).reduce((a,b) => Math.max(a, b)) || 0;
+			}
+
+			get TextWidth() {
+				let header = this.#_header.TextWidth;
+				let body = this.#_body.TextWidth;
+
+				return Math.max(header, body);
+			}
+		}
+		class SettingDataModel
+		{
+			#_viewlist = null;
+			constructor(obj)
+			{
+				this.#_viewlist = Object.fromEntries(Object.entries(obj).map(([key, view]) => [key, new ViewDataModel(view)]));
+			}
+
+			get ViewList() {
+				return this.#_viewlist;
+			}
+		}
+	</script>
+	<script type="text/babel">
+		const jsonStr = JSON.stringify({
+			SampleView: {
+				id: "ID0001",
+				title: "サンプル画面",
+				items: {
+					Btn01: {
+						type: "Button",
+						text: "Button01"
+					},
+					Btn02: {
+						type: "Button",
+						text: "Button02"
+					},
+					Btn03: {
+						type: "Button",
+						text: "Button03"
+					},
+				},
+				actions: {
+					act01: {
+						item: "Button01",
+						event: "touchUpInside",
+						next: "ID0002"
+					}
+				}
+			},
+			SubView: {
+				id: "ID0002",
+				title: "サブ画面"
+			}
+		});
+		function SettingData() {
+			let data = JSON.parse(jsonStr)
+
+			data = Object.fromEntries(Object.entries(data).map(([key, view]) => {
+				if(view.items) {
+					view.items = Object.fromEntries(Object.entries(view.items).map(([key, item]) => {
+						item.label = `+ ${item.text}: ${item.type}`;
+						return [key, item];
+					}));
+				}
+				if(view.actions) {
+					view.actions = Object.fromEntries(Object.entries(view.actions).map(([key, act]) => {
+						act.label = `${ act.event } by ${act.item} to ${act.next}`;
+						return [key, act];
+					}));
+				}
+
+				return [key, view];
+			}));
+
+			let model = new SettingDataModel(data);
+
+			return model;
+		}
+	</script>
+	<script type="text/babel">
+		class ViewItem extends React.Component
+		{
+			get label() {
+				return this.props.item.Label;
+			}
+			render()
+			{
+				return (
+					<text>{this.label}</text>
+				);
+			}
+		}
+	</script>
+	<script type="text/babel">
+		class ViewItems extends React.Component
+		{
+			get items() {
+				return Object.entries(this.props.items).map(([key, item]) => {
+					return <ViewItem key={key} item={item} />
+				});
+			}
+			render()
+			{
+				return (
+					<g className="view_items">
+						{this.items}
+					</g>
+				);
+			}
+		}
+		class ViewBody extends React.Component
+		{
+			constructor(props) {
+				super(props)
+			}
+			get items() {
+				return this.props.items ? <ViewItems items={this.props.items} /> : null;
+			}
+			get actions() {
+				return this.props.actions ? <ViewActions actions={this.props.actions} /> : null;
+			}
+			render()
+			{
+				return (
+					<g className="view_body">
+						{this.items}
+						{this.actions}
+					</g>
+				);
+			}
+		}
+		class ViewActions extends React.Component
+		{
+			render()
+			{
+				return (
+					<g className="view_actions">
+						{
+							Object.entries(this.props.actions).map(([key, act]) => {
+								return <ViewAction key={key} action={act} />
+							})
+						}
+					</g>
+				);
+			}
+		}
+		class ViewAction extends React.Component
+		{
+			render()
+			{
+				return (
+					<text className="view_action">
+						{this.props.action.Label}
+					</text>
+				);
+			}
+		}
+	</script>
+	<script type="text/babel">
+		class ViewID extends React.Component
+		{
+			render()
+			{
+				return (
+					<g x={this.props.x} y={this.props.y} width={this.props.width} height={this.props.height} className="view_id">
+						<rect x={this.props.x} y={this.props.y} width={this.props.width} height={this.props.height} fill="none" stroke="#000" />
+						<text x={this.props.x} y={parseInt(this.props.y) + parseInt(this.props.height)}>
+							{ this.props.id }
+						</text>
+					</g>
+				);
+			}
+		}
+		class ViewTitle extends React.Component
+		{
+			render()
+			{
+				return (
+					<g width={this.props.width} className="view_title">
+						<rect x={this.props.x} y={this.props.y} width={this.props.width} height={this.props.height} fill="none" stroke="#000" />
+						<text x={this.props.x} y={parseInt(this.props.y) + this.props.height} className="view_title">
+							{ this.props.title }
+						</text>
+					</g>
+				);
+			}
+		}
+		class ViewHeader extends React.Component
+		{
+			get width()
+			{
+				return this.props.width;
+			}
+			get height()
+			{
+				return this.props.header.Height;
+			}
+
+			get header()
+			{
+				return this.props.header;
+			}
+
+			render()
+			{
+				return (
+					<g x={this.props.x} y={this.props.y} width={this.props.width} className="view_header">
+						<ViewID x={this.props.x} y={this.props.y} width={this.props.width} height={this.header.IdTextRect.Height} id={this.props.header.ID}/>
+						<ViewTitle x={this.props.x} y={parseInt(this.props.y) + parseInt(this.header.IdTextRect.Height)} width={this.props.width} height={this.header.TitleTextRect.Height} title={this.props.header.Title} />
+					</g>
+				);
+			}
+		}
+	</script>
+	<script type="text/babel">
+		class View extends React.Component
+		{
+			get width()
+			{
+				return this.props.view.Width;
+			}
+			get height() {
+				return this.props.view.Height;
+			}
+			render()
+			{
+				return (
+					<g className="view" x={this.props.x} y={this.props.y}>
+						<rect x={0} y={0} width={this.width} height={this.height} fill="none" stroke="#000"></rect>
+						<ViewHeader x={this.props.x} y={this.props.y} width={this.width} height={this.height} header={this.props.view.Header} />
+						<ViewBody items={this.props.view.Items} actions={this.props.view.Actions} />
+					</g>
+				);
+			}
+		}
+		class Views extends React.Component
+		{
+			render()
+			{
+				return (
+					<svg className="canvas" x={this.props.x} y={this.props.y} xmlns="http://www.w3.org/2000/svg">
+						{
+							Object.entries(this.props.data.ViewList).map(([key, view]) => {
+								return <View key={key} x={this.props.x} y={this.props.y} view={view} />;
+							})
+						}
+					</svg>
+				);
+			}
+		}
+	</script>
+	<script type="text/babel">
+		ReactDOM.render(
+			<Views x="0" y="0" data={SettingData()} />,
+			document.getElementById('root')
+		);
+	</script>
+</body>
+</html>
