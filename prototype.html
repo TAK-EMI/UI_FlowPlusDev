@@ -10,6 +10,7 @@
 	<style>
 		.canvas {
 			width: 100%;
+			height: 100%;
 		}
 	</style>
 </head>
@@ -17,7 +18,26 @@
 	<div id="root"></div>
 	<script type="text/babel"></script>
 	<script type="text/babel">
-		class Rect
+		class Point
+		{
+			#_x = 0;
+			#_y = 0;
+			constructor(x, y)
+			{
+				this.#_x = x;
+				this.#_y = y;
+			}
+
+			get X()
+			{
+				return this.#_x;
+			}
+			get Y()
+			{
+				return this.#_y;
+			}
+		}
+		class Size
 		{
 			#_w = 0;
 			#_h = 0;
@@ -44,7 +64,7 @@
 				return this.#_h;
 			}
 		}
-		function calcStringRect(text)
+		function calcStringSize(text)
 		{
 			const span = document.createElement('span');
 			span.innerText = text;
@@ -55,7 +75,7 @@
 				document.body.removeChild(span);
 			}, 0);
 
-			return new Rect(span.offsetWidth || 0, span.offsetHeight || 0);
+			return new Size(span.offsetWidth || 0, span.offsetHeight || 0);
 		}
 	</script>
 	<script type="text/babel">
@@ -72,11 +92,11 @@
 			get Label() {
 				return `+ ${this.#_text}: ${this.#_type}`;
 			}
-			get TextRect() {
-				return calcStringRect(this.Label);
+			get TextSize() {
+				return calcStringSize(this.Label);
 			}
 			get TextWidth() {
-				return this.TextRect.Width;
+				return this.TextSize.Width;
 			}
 		}
 		class ViewActionModel
@@ -95,11 +115,11 @@
 			{
 				return `${ this.#_event } by ${this.#_itemName} to ${this.#_nextView}`;
 			}
-			get TextRect() {
-				return calcStringRect(this.Label);
+			get TextSize() {
+				return calcStringSize(this.Label);
 			}
 			get TextWidth() {
-				return this.TextRect.Width;
+				return this.TextSize.Width;
 			}
 		}
 		class ViewHeaderModel
@@ -114,7 +134,7 @@
 
 			get Height()
 			{
-				return this.IdTextRect.Height + this.TitleTextRect.Height;
+				return this.IdTextSize.Height + this.TitleTextSize.Height;
 			}
 
 			get ID()
@@ -126,21 +146,21 @@
 				return this.#_title;
 			}
 
-			get IdTextRect()
+			get IdTextSize()
 			{
-				return calcStringRect(this.ID)
+				return calcStringSize(this.ID)
 			}
 			get IdTextWidth()
 			{
-				return this.IdTextRect.Width;
+				return this.IdTextSize.Width;
 			}
-			get TitleTextRect()
+			get TitleTextSize()
 			{
-				return calcStringRect(this.Title);
+				return calcStringSize(this.Title);
 			}
 			get TitleTextWidth()
 			{
-				return this.TitleTextRect.Width;
+				return this.TitleTextSize.Width;
 			}
 			get TextWidth()
 			{
@@ -218,6 +238,10 @@
 			{
 				return 100;
 			}
+			get Size()
+			{
+				return new Size(this.Width, this.Height);
+			}
 
 			get Header()
 			{
@@ -264,8 +288,28 @@
 				this.#_viewlist = Object.fromEntries(Object.entries(obj).map(([key, view]) => [key, new ViewDataModel(view)]));
 			}
 
-			get ViewList() {
-				return this.#_viewlist;
+			get ViewKeyList() {
+				return Object.keys(this.#_viewlist);
+			}
+
+			getView(key) {
+				return this.#_viewlist[key];
+			}
+			getViewPosition(argKey) {
+				let pos = new Point(0, 0);
+				let margin = 10;
+
+				for (const key of this.ViewKeyList) {
+					if(key === argKey)
+					{
+						break;
+					}
+
+					let size = this.getView(key).Size;
+					pos = new Point(pos.X + size.Width + margin, pos.Y);
+				}
+
+				return pos;
 			}
 		}
 	</script>
@@ -454,8 +498,8 @@
 			{
 				return (
 					<g x={this.props.x} y={this.props.y} width={this.props.width} className="view_header">
-						<ViewID x={this.props.x} y={this.props.y} width={this.props.width} height={this.header.IdTextRect.Height} id={this.props.header.ID}/>
-						<ViewTitle x={this.props.x} y={parseInt(this.props.y) + parseInt(this.header.IdTextRect.Height)} width={this.props.width} height={this.header.TitleTextRect.Height} title={this.props.header.Title} />
+						<ViewID x={this.props.x} y={this.props.y} width={this.props.width} height={this.header.IdTextSize.Height} id={this.props.header.ID}/>
+						<ViewTitle x={this.props.x} y={parseInt(this.props.y) + parseInt(this.header.IdTextSize.Height)} width={this.props.width} height={this.header.TitleTextSize.Height} title={this.props.header.Title} />
 					</g>
 				);
 			}
@@ -475,7 +519,7 @@
 			{
 				return (
 					<g className="view" x={this.props.x} y={this.props.y}>
-						<rect x={0} y={0} width={this.width} height={this.height} fill="none" stroke="#000"></rect>
+						<rect x={this.props.x} y={this.props.y} width={this.width} height={this.height} fill="none" stroke="#000"></rect>
 						<ViewHeader x={this.props.x} y={this.props.y} width={this.width} height={this.height} header={this.props.view.Header} />
 						<ViewBody items={this.props.view.Items} actions={this.props.view.Actions} />
 					</g>
@@ -484,13 +528,19 @@
 		}
 		class Views extends React.Component
 		{
+			get data() {
+				return this.props.data;
+			}
+
 			render()
 			{
 				return (
 					<svg className="canvas" x={this.props.x} y={this.props.y} xmlns="http://www.w3.org/2000/svg">
 						{
-							Object.entries(this.props.data.ViewList).map(([key, view]) => {
-								return <View key={key} x={this.props.x} y={this.props.y} view={view} />;
+							this.data.ViewKeyList.map((key) => {
+								let view = this.data.getView(key);
+								let pos = this.data.getViewPosition(key);
+								return <View key={key} x={pos.X} y={pos.Y} view={view} />;
 							})
 						}
 					</svg>
