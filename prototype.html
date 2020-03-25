@@ -66,9 +66,12 @@
 		}
 		function calcStringSize(text)
 		{
+			const classname = `hidden_${text}`;
+
 			const span = document.createElement('span');
 			span.innerText = text;
 			span.style.visibility = 'hidden';
+			span.class = classname;
 			document.body.appendChild(span);
 			// offsetWidthができたらすぐに消す
 			setTimeout(() => {
@@ -83,17 +86,20 @@
 		{
 			#_type = null;
 			#_text = null;
+			#_textSize = 0
 			constructor(obj)
 			{
 				this.#_type = obj.type;
 				this.#_text = obj.text;
+
+				this.#_textSize = calcStringSize(this.Label);
 			}
 
 			get Label() {
 				return `+ ${this.#_text}: ${this.#_type}`;
 			}
 			get TextSize() {
-				return calcStringSize(this.Label);
+				return this.#_textSize;
 			}
 			get TextWidth() {
 				return this.TextSize.Width;
@@ -104,11 +110,14 @@
 			#_itemName = null;
 			#_event = null;
 			#_nextView = null;
+			#_textSize = 0;
 			constructor(obj)
 			{
 				this.#_itemName = obj.item;
 				this.#_event = obj.event;
 				this.#_nextView = obj.next;
+
+				this.#_textSize = calcStringSize(this.Label);
 			}
 
 			get Label()
@@ -116,7 +125,7 @@
 				return `${ this.#_event } by ${this.#_itemName} to ${this.#_nextView}`;
 			}
 			get TextSize() {
-				return calcStringSize(this.Label);
+				return this.#_textSize;
 			}
 			get TextWidth() {
 				return this.TextSize.Width;
@@ -126,10 +135,15 @@
 		{
 			#_id = null;
 			#_title = null;
+			#_idSize = 0;
+			#_titleSize = 0;
 			constructor(id, title)
 			{
 				this.#_id = id;
 				this.#_title = title;
+
+				this.#_idSize = calcStringSize(this.ID);
+				this.#_titleSize = calcStringSize(this.Title);
 			}
 
 			get Height()
@@ -148,7 +162,7 @@
 
 			get IdTextSize()
 			{
-				return calcStringSize(this.ID)
+				return this.#_idSize;
 			}
 			get IdTextWidth()
 			{
@@ -156,7 +170,7 @@
 			}
 			get TitleTextSize()
 			{
-				return calcStringSize(this.Title);
+				return this.#_titleSize;
 			}
 			get TitleTextWidth()
 			{
@@ -457,7 +471,7 @@
 				return (
 					<g x={this.props.x} y={this.props.y} width={this.props.width} height={this.props.height} className="view_id">
 						<rect x={this.props.x} y={this.props.y} width={this.props.width} height={this.props.height} fill="none" stroke="#000" />
-						<text x={this.props.x} y={parseInt(this.props.y) + parseInt(this.props.height) / 2.0} dominant-baseline="middle">
+						<text x={this.props.x} y={parseInt(this.props.y) + parseInt(this.props.height) / 2.0} dominantBaseline="middle">
 							{ this.props.id }
 						</text>
 					</g>
@@ -471,7 +485,7 @@
 				return (
 					<g width={this.props.width} className="view_title">
 						<rect x={this.props.x} y={this.props.y} width={this.props.width} height={this.props.height} fill="none" stroke="#000" />
-						<text x={this.props.x} y={parseInt(this.props.y) + this.props.height / 2.0} dominant-baseline="middle">
+						<text x={this.props.x} y={parseInt(this.props.y) + this.props.height / 2.0} dominantBaseline="middle">
 							{ this.props.title }
 						</text>
 					</g>
