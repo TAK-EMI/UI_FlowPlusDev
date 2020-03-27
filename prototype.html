@@ -101,6 +101,10 @@
 			{
 				return this.#_size;
 			}
+			set Size(value)
+			{
+				this.#_size = value;
+			}
 			get Position()
 			{
 				return this.#_position;
@@ -114,31 +118,49 @@
 			{
 				return this.Size.Width;
 			}
+			set Width(value)
+			{
+				this.Size = new Size(value, this.Height);
+			}
 			get Height()
 			{
 				return this.Size.Height;
+			}
+			set Height(value)
+			{
+				this.Size = new Size(this.Width, value);
 			}
 			get X()
 			{
 				return this.Position.X;
 			}
+			set X(value)
+			{
+				this.Position = new Point(value, this.Y);
+			}
 			get Y()
 			{
 				return this.Position.Y;
 			}
-
+			set Y(value)
+			{
+				this.Position = new Point(this.X, value);
+			}
 		}
-		class ViewItemModel
+		class ViewItemModel extends BaseModel
 		{
 			#_type = null;
 			#_text = null;
-			#_textSize = 0
+
+			#_textSize = null;
 			constructor(obj)
 			{
+				super();
 				this.#_type = obj.type;
 				this.#_text = obj.text;
 
 				this.#_textSize = calcStringSize(this.Label);
+				this.Size = this.#_textSize;
 			}
 
 			get Label() {
@@ -151,19 +173,22 @@
 				return this.TextSize.Width;
 			}
 		}
-		class ViewActionModel
+		class ViewActionModel extends BaseModel
 		{
 			#_itemName = null;
 			#_event = null;
 			#_nextView = null;
-			#_textSize = 0;
+
+			#_textSize = null;
 			constructor(obj)
 			{
+				super();
 				this.#_itemName = obj.item;
 				this.#_event = obj.event;
 				this.#_nextView = obj.next;
 
 				this.#_textSize = calcStringSize(this.Label);
+				this.Size = this.#_textSize;
 			}
 
 			get Label()
@@ -177,7 +202,7 @@
 				return this.TextSize.Width;
 			}
 		}
-		class ViewHeaderModel
+		class ViewHeaderModel extends BaseModel
 		{
 			#_id = null;
 			#_title = null;
@@ -185,16 +210,15 @@
 			#_titleSize = 0;
 			constructor(id, title)
 			{
+				super();
 				this.#_id = id;
 				this.#_title = title;
 
 				this.#_idSize = calcStringSize(this.ID);
 				this.#_titleSize = calcStringSize(this.Title);
-			}
 
-			get Height()
-			{
-				return this.IdTextSize.Height + this.TitleTextSize.Height;
+				this.Width = Math.max(this.IdTextSize.Width, this.TitleTextSize.Width);
+				this.Height = this.IdTextSize.Height + this.TitleTextSize.Height;
 			}
 
 			get ID()
@@ -227,14 +251,18 @@
 				return Math.max(this.IdTextWidth, this.TitleTextWidth);
 			}
 		}
-		class ViewBodyModel
+		class ViewBodyModel extends BaseModel
 		{
 			#_items = null;
 			#_actions = null;
 			constructor(items, actions)
 			{
+				super();
 				this.#_items = items && Object.fromEntries(Object.entries(items).map(([key, item]) => [key, new ViewItemModel(item)]));
 				this.#_actions = actions && Object.fromEntries(Object.entries(actions).map(([key, act]) => [key, new ViewItemModel(act)]));
+
+				this.Width = this.TextWidth;
+				this.Height = (this.ItemList?.map(item => item.Height).reduce((a, b) => a + b) || 0) + (this.ActionList?.map(act => act.Height).reduce((a,b) => a + b) || 0);
 			}
 
 			get RawItemList()
@@ -290,24 +318,20 @@
 
 				this.#_header = new ViewHeaderModel(obj.id, obj.title);
 				this.#_body = new ViewBodyModel(obj.items, obj.actions);
-			}
 
-			get Width()
-			{
-				return this.TextWidth;
-			}
-			get Height()
-			{
-				return 100;
-			}
-			get Size()
-			{
-				return new Size(this.Width, this.Height);
+				this.Width = Math.max(100, Math.max(this.Header.Width, this.Body.Width));
+				this.Height = Math.max(100, this.Header.Height + this.Body.Height);
+
+				this.Body.Position = new Point(0, this.Header.Height);
 			}
 
 			get Header()
 			{
 				return this.#_header;
+			}
+			get Body()
+			{
+				return this.#_body;
 			}
 			get Items()
 			{
@@ -519,7 +543,7 @@
 			render()
 			{
 				return (
-					<g x={this.props.x} y={this.props.y} width={this.props.width} height={this.props.height} className="view_id">
+					<g className="view_id">
 						<rect x={this.props.x} y={this.props.y} width={this.props.width} height={this.props.height} fill="none" stroke="#000" />
 						<text x={this.props.x} y={parseInt(this.props.y) + parseInt(this.props.height) / 2.0} dominantBaseline="middle">
 							{ this.props.id }
@@ -533,7 +557,7 @@
 			render()
 			{
 				return (
-					<g width={this.props.width} className="view_title">
+					<g className="view_title">
 						<rect x={this.props.x} y={this.props.y} width={this.props.width} height={this.props.height} fill="none" stroke="#000" />
 						<text x={this.props.x} y={parseInt(this.props.y) + this.props.height / 2.0} dominantBaseline="middle">
 							{ this.props.title }
@@ -561,7 +585,7 @@
 			render()
 			{
 				return (
-					<g x={this.props.x} y={this.props.y} width={this.props.width} className="view_header">
+					<g className="view_header">
 						<ViewID x={this.props.x} y={this.props.y} width={this.props.width} height={this.header.IdTextSize.Height} id={this.props.header.ID}/>
 						<ViewTitle x={this.props.x} y={parseInt(this.props.y) + parseInt(this.header.IdTextSize.Height)} width={this.props.width} height={this.header.TitleTextSize.Height} title={this.props.header.Title} />
 					</g>
@@ -594,7 +618,7 @@
 			render()
 			{
 				return (
-					<g className="view" x={this.x} y={this.y}>
+					<g className="view">
 						<rect x={this.x} y={this.y} width={this.width} height={this.height} fill="none" stroke="#000"></rect>
 						<ViewHeader x={this.x} y={this.y} width={this.width} height={this.height} header={this.model.Header} />
 						<ViewBody items={this.model.Items} actions={this.model.Actions} />
@@ -611,7 +635,7 @@
 			render()
 			{
 				return (
-					<svg className="canvas" x={this.props.x} y={this.props.y} xmlns="http://www.w3.org/2000/svg">
+					<svg className="canvas" xmlns="http://www.w3.org/2000/svg">
 						{
 							this.data.ViewKeyList.map((key) => {
 								let view = this.data.getView(key);
