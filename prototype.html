@@ -20,6 +20,11 @@
 	<script type="text/babel">
 		class Point
 		{
+			static get Zero()
+			{
+				return new Point(0, 0);
+			}
+
 			#_x = 0;
 			#_y = 0;
 			constructor(x, y)
@@ -236,10 +241,12 @@
 		}
 		class ViewDataModel
 		{
+			#_position = null;
 			#_header = null;
 			#_body = null;
 			constructor(obj)
 			{
+				this.#_position = Point.Zero;
 				this.#_header = new ViewHeaderModel(obj.id, obj.title);
 				this.#_body = new ViewBodyModel(obj.items, obj.actions);
 			}
@@ -255,6 +262,23 @@
 			get Size()
 			{
 				return new Size(this.Width, this.Height);
+			}
+
+			get Position()
+			{
+				return this.#_position;
+			}
+			set Position(value)
+			{
+				this.#_position = value;
+			}
+			get X()
+			{
+				return this.#_position.X;
+			}
+			get Y()
+			{
+				return this.#_position.Y;
 			}
 
 			get Header()
@@ -307,7 +331,9 @@
 			}
 
 			getView(key) {
-				return this.#_viewlist[key];
+				let view = this.#_viewlist[key];
+				view.Position = this.getViewPosition(key);
+				return view;
 			}
 			getViewPosition(argKey) {
 				let pos = new Point(0, 0);
@@ -522,20 +548,32 @@
 	<script type="text/babel">
 		class View extends React.Component
 		{
+			get model() {
+				return this.props.model;
+			}
+
+			get x()
+			{
+				return this.model.X;
+			}
+			get y()
+			{
+				return this.model.Y;
+			}
 			get width()
 			{
-				return this.props.view.Width;
+				return this.model.Width;
 			}
 			get height() {
-				return this.props.view.Height;
+				return this.model.Height;
 			}
 			render()
 			{
 				return (
-					<g className="view" x={this.props.x} y={this.props.y}>
-						<rect x={this.props.x} y={this.props.y} width={this.width} height={this.height} fill="none" stroke="#000"></rect>
-						<ViewHeader x={this.props.x} y={this.props.y} width={this.width} height={this.height} header={this.props.view.Header} />
-						<ViewBody items={this.props.view.Items} actions={this.props.view.Actions} />
+					<g className="view" x={this.x} y={this.y}>
+						<rect x={this.x} y={this.y} width={this.width} height={this.height} fill="none" stroke="#000"></rect>
+						<ViewHeader x={this.x} y={this.y} width={this.width} height={this.height} header={this.model.Header} />
+						<ViewBody items={this.model.Items} actions={this.model.Actions} />
 					</g>
 				);
 			}
@@ -553,8 +591,7 @@
 						{
 							this.data.ViewKeyList.map((key) => {
 								let view = this.data.getView(key);
-								let pos = this.data.getViewPosition(key);
-								return <View key={key} x={pos.X} y={pos.Y} view={view} />;
+								return <View key={key} model={this.data.getView(key)} />;
 							})
 						}
 					</svg>
