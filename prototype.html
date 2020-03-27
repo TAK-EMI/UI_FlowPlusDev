@@ -87,6 +87,47 @@
 		}
 	</script>
 	<script type="text/babel">
+		class BaseModel
+		{
+			#_position = null;
+			#_size = null;
+			constructor()
+			{
+				this.#_position = Point.Zero;
+				this.#_size = new Size(100, 100);
+			}
+
+			get Size()
+			{
+				return this.#_size;
+			}
+			get Position()
+			{
+				return this.#_position;
+			}
+			set Position(value)
+			{
+				this.#_position = value;
+			}
+
+			get Width()
+			{
+				return this.Size.Width;
+			}
+			get Height()
+			{
+				return this.Size.Height;
+			}
+			get X()
+			{
+				return this.Position.X;
+			}
+			get Y()
+			{
+				return this.Position.Y;
+			}
+
+		}
 		class ViewItemModel
 		{
 			#_type = null;
@@ -239,14 +280,14 @@
 				return this.#_actions && this.#_actions;
 			}
 		}
-		class ViewDataModel
+		class ViewDataModel extends BaseModel
 		{
-			#_position = null;
 			#_header = null;
 			#_body = null;
 			constructor(obj)
 			{
-				this.#_position = Point.Zero;
+				super();
+
 				this.#_header = new ViewHeaderModel(obj.id, obj.title);
 				this.#_body = new ViewBodyModel(obj.items, obj.actions);
 			}
@@ -262,23 +303,6 @@
 			get Size()
 			{
 				return new Size(this.Width, this.Height);
-			}
-
-			get Position()
-			{
-				return this.#_position;
-			}
-			set Position(value)
-			{
-				this.#_position = value;
-			}
-			get X()
-			{
-				return this.#_position.X;
-			}
-			get Y()
-			{
-				return this.#_position.Y;
 			}
 
 			get Header()
