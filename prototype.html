@@ -29,8 +29,8 @@
 			#_y = 0;
 			constructor(x, y)
 			{
-				this.#_x = x;
-				this.#_y = y;
+				this.#_x = parseInt(x);
+				this.#_y = parseInt(y);
 			}
 
 			get X()
@@ -41,6 +41,15 @@
 			{
 				return this.#_y;
 			}
+
+			add(x, y)
+			{
+				return new Point(this.X + x, this.Y + y);
+			}
+			addPoint(p)
+			{
+				return new Point(this.X + p.X, this.Y + p.Y);
+			}
 		}
 		class Size
 		{
@@ -48,8 +57,8 @@
 			#_h = 0;
 			constructor(w, h)
 			{
-				this.#_w = w;
-				this.#_h = h;
+				this.#_w = parseInt(w);
+				this.#_h = parseInt(h);
 			}
 
 			get W()
@@ -69,32 +78,20 @@
 				return this.#_h;
 			}
 		}
-		function calcStringSize(text)
+		class Rect
 		{
-			const classname = `hidden_${text}`;
+			static Set(x, y, w, h)
+			{
+				return new Rect(new Point(x, y), new Size(w, h));
+			}
 
-			const span = document.createElement('span');
-			span.innerText = text;
-			span.style.visibility = 'hidden';
-			span.class = classname;
-			document.body.appendChild(span);
-			// offsetWidthができたらすぐに消す
-			setTimeout(() => {
-				document.body.removeChild(span);
-			}, 0);
-
-			return new Size(span.offsetWidth || 0, span.offsetHeight || 0);
-		}
-	</script>
-	<script type="text/babel">
-		class BaseModel
-		{
 			#_position = null;
 			#_size = null;
-			constructor()
+			constructor(pos, size)
 			{
-				this.#_position = Point.Zero;
-				this.#_size = new Size(100, 100);
+				this.#_position = pos;
+				this.#_size = size;
+				return;
 			}
 
 			get Size()
@@ -130,6 +127,7 @@
 			{
 				this.Size = new Size(this.Width, value);
 			}
+
 			get X()
 			{
 				return this.Position.X;
@@ -147,78 +145,240 @@
 				this.Position = new Point(this.X, value);
 			}
 		}
-		class ViewItemModel extends BaseModel
+		function calcStringSize(text)
 		{
-			#_type = null;
-			#_text = null;
+			const classname = `hidden_${text}`;
 
-			#_textSize = null;
-			constructor(obj)
+			const span = document.createElement('span');
+			span.innerText = text;
+			span.style.visibility = 'hidden';
+			span.class = classname;
+			document.body.appendChild(span);
+			// offsetWidthができたらすぐに消す
+			setTimeout(() => {
+				document.body.removeChild(span);
+			}, 0);
+
+			return new Size(span.offsetWidth || 0, span.offsetHeight || 0);
+		}
+	</script>
+	<script type="text/babel">
+		class ViewDataModelListBuilder
+		{
+			#src = null;
+			#viewList = null;
+			constructor(src)
+			{
+				let pos = Point.Zero;
+				let margin = 10;
+
+				this.#src = src;
+				this.#viewList = Object.fromEntries(Object.entries(src).map(([key, view]) => {
+						let model = this.buildViewDataModel(pos, view);
+						pos = pos.add(pos.X + margin + model.Width, pos.Y);
+
+						return [key, model];
+					}));
+
+				return;
+			}
+			get ViewList()
+			{
+				return this.#viewList;
+			}
+
+			buildViewDataModel(pos, obj)
+			{
+				let header = this.buildViewHeaderModel(pos, obj.id, obj.title);
+				let body = this.buildViewBodyModel(new Point(pos.X, pos.Y + header.Height), obj.items, obj.actions);
+
+				let view = new ViewDataModel(header, body);
+				view.Position = pos;
+				view.Width = header.Width = body.Width = Math.max(100, Math.max(header.Width, body.Width));
+				view.Height = header.Height + body.Height;
+
+				return view;
+			}
+			buildViewHeaderModel(pos, idStr, titleStr)
+			{
+				let id = this.buildViewTextModel(pos, idStr);
+				let title = this.buildViewTextModel(new Point(pos.X, pos.Y + id.Height), titleStr);
+
+				let header = new ViewHeaderModel(id, title);
+
+				header.Position = id.Position;
+				header.Width = Math.max(id.Width, title.Width);
+				header.Height = id.Height + title.Height;
+
+				return header;
+			}
+			buildViewBodyModel(pos, items, acts)
+			{
+				let itemList = this.buildViewItemModelList(pos, items);
+				let itemRawList = itemList && Object.entries(itemList).map(([key, item]) => item);
+				let itemWidth = itemRawList?.map((item) => item.Width).reduce((a, b) => Math.max(a, b)) || 0;
+				let itemHeight = itemRawList?.map((item) => item.Height).reduce((a, b) => a + b) || 0;
+
+				let actList = this.buildViewActionModelList(new Point(pos.X, pos.Y + itemHeight), acts);
+				let actRawList = actList && Object.entries(actList).map(([key, act]) => act);
+				let actWidth = actRawList?.map((act) => act.Width).reduce((a, b) => Math.max(a, b)) || 0;
+				let actHeigh = actRawList?.map((act) => act.Height).reduce((a, b) => a + b) || 0;
+
+				let maxWidth = Math.max(itemWidth, actWidth);
+				let itemRect = new Rect(pos, new Size(maxWidth, itemHeight));
+				let actRect = new Rect(pos, new Size(maxWidth, actHeigh));
+
+				let model = new ViewBodyModel(itemList, actList, itemRect, actRect);
+				model.Position = pos;
+				model.Width = maxWidth;
+				model.Height = itemHeight + actHeigh;
+
+				return model;
+			}
+			buildViewActionModelList(pos, acts)
+			{
+				if(acts == null)
+				{
+					return null;
+				}
+
+				let p = pos;
+				let list = Object.fromEntries(Object.entries(acts).map(([key, act]) => {
+					let item = act.item;
+					let event = act.event;
+					let next = act.next;
+
+					let labelStr = `${ event } by ${ item } to ${ next }`;
+					let label = new ViewTextModel(labelStr);
+					label.Position = p;
+					label.Size = calcStringSize(labelStr);
+
+					let model = new ViewActionModel(item, event, next, label);
+					model.Position = label.Position;
+					model.Size = label.Size;
+
+					p = p.add(0, model.Height);
+					return [key, model];
+				}));
+
+				return list;
+			}
+			buildViewItemModelList(pos, items)
+			{
+				if(items == null)
+				{
+					return null;
+				}
+
+				let p = pos;
+				let list = Object.fromEntries(Object.entries(items).map(([key, item]) => {
+
+					let type = item.type;
+					let text = item.text;
+					let labelStr = `+ ${text}: ${type}`;
+					let label = new ViewTextModel(labelStr);
+					label.Position = p;
+					label.Size = calcStringSize(labelStr);
+
+					let model = new ViewItemModel(type, text, label);
+					model.Position = label.Position;
+					model.Size = label.Size;
+
+					p = p.add(0, model.Height);
+					return [key, model];
+				}));
+
+				return list;
+			}
+			buildViewTextModel(pos, str)
+			{
+				let model = new ViewTextModel(str);
+				model.Position = pos;
+				model.Size = calcStringSize(str);
+
+				return model;
+			}
+		}
+	</script>
+	<script type="text/babel">
+		class BaseModel extends Rect
+		{
+			constructor(pos = Point.Zero, size = new Size(100, 100))
+			{
+				super(pos, size);
+			}
+		}
+		class ViewTextModel extends BaseModel
+		{
+			#dominantBaseline = "text-before-edge"
+			#text = "";
+			constructor(str = "")
 			{
 				super();
-				this.#_type = obj.type;
-				this.#_text = obj.text;
+				this.#text = str;
+			}
+			
+			get Text()
+			{
+				return this.#text;
+			}
+			get DominantBaseLine()
+			{
+				return this.#dominantBaseline;
+			}
+		}
+		class ViewItemModel extends BaseModel
+		{
+			#type = "";
+			#text = "";
+			#label = null;
+			constructor(type, text, label)
+			{
+				super();
 
-				this.#_textSize = calcStringSize(this.Label);
-				this.Size = this.#_textSize;
+				this.#type = type;
+				this.#text = text;
+
+				this.#label = label;
 			}
 
 			get Label() {
-				return `+ ${this.#_text}: ${this.#_type}`;
-			}
-			get TextSize() {
-				return this.#_textSize;
-			}
-			get TextWidth() {
-				return this.TextSize.Width;
+				return this.#label;
 			}
 		}
 		class ViewActionModel extends BaseModel
 		{
-			#_itemName = null;
-			#_event = null;
-			#_nextView = null;
+			#item = "";
+			#event = "";
+			#next = "";
 
-			#_textSize = null;
-			constructor(obj)
+			#label = null;
+			constructor(item, event, next, label)
 			{
 				super();
-				this.#_itemName = obj.item;
-				this.#_event = obj.event;
-				this.#_nextView = obj.next;
 
-				this.#_textSize = calcStringSize(this.Label);
-				this.Size = this.#_textSize;
+				this.#item = item;
+				this.#event = event;
+				this.#next = next;
+
+				this.#label = label;
 			}
 
 			get Label()
 			{
-				return `${ this.#_event } by ${this.#_itemName} to ${this.#_nextView}`;
-			}
-			get TextSize() {
-				return this.#_textSize;
-			}
-			get TextWidth() {
-				return this.TextSize.Width;
+				return this.#label;
 			}
 		}
 		class ViewHeaderModel extends BaseModel
 		{
 			#_id = null;
 			#_title = null;
-			#_idSize = 0;
-			#_titleSize = 0;
 			constructor(id, title)
 			{
 				super();
+
 				this.#_id = id;
 				this.#_title = title;
-
-				this.#_idSize = calcStringSize(this.ID);
-				this.#_titleSize = calcStringSize(this.Title);
-
-				this.Width = Math.max(this.IdTextSize.Width, this.TitleTextSize.Width);
-				this.Height = this.IdTextSize.Height + this.TitleTextSize.Height;
 			}
 
 			get ID()
@@ -229,74 +389,60 @@
 			{
 				return this.#_title;
 			}
-
-			get IdTextSize()
-			{
-				return this.#_idSize;
-			}
-			get IdTextWidth()
-			{
-				return this.IdTextSize.Width;
-			}
-			get TitleTextSize()
-			{
-				return this.#_titleSize;
-			}
-			get TitleTextWidth()
-			{
-				return this.TitleTextSize.Width;
-			}
-			get TextWidth()
-			{
-				return Math.max(this.IdTextWidth, this.TitleTextWidth);
-			}
 		}
 		class ViewBodyModel extends BaseModel
 		{
 			#_items = null;
 			#_actions = null;
-			constructor(items, actions)
+			#itemsRect = null;
+			#actionsRect = null;
+
+			#itemKeyList = null;
+			#actionKeyList = null;
+			constructor(items, actions, iRect, aRect)
 			{
 				super();
-				this.#_items = items && Object.fromEntries(Object.entries(items).map(([key, item]) => [key, new ViewItemModel(item)]));
-				this.#_actions = actions && Object.fromEntries(Object.entries(actions).map(([key, act]) => [key, new ViewItemModel(act)]));
+				this.#_items = items;
+				this.#_actions = actions;
+				this.#itemsRect = iRect;
+				this.#actionsRect = aRect;
 
-				this.Width = this.TextWidth;
-				this.Height = (this.ItemList?.map(item => item.Height).reduce((a, b) => a + b) || 0) + (this.ActionList?.map(act => act.Height).reduce((a,b) => a + b) || 0);
-			}
-
-			get RawItemList()
-			{
-				return this.#_items;
-			}
-			get ItemIdList()
-			{
-				return this.#_items && Object.keys(this.#_items);
-			}
-			get ItemList()
-			{
-				return this.#_items && Object.values(this.#_items);
+				this.#itemKeyList = items && Object.entries(items).map(([key, item]) => key);
+				this.#actionKeyList = actions && Object.entries(actions).map(([key, act]) => key);
 			}
 
-			get RawActionList()
+			get ItemListBoundingRect()
 			{
-				return this.#_actions;
+				return this.#itemsRect;
 			}
-			get ActionIdList()
+			get ActionListBoundingRect()
 			{
-				return this.#_actions && Object.keys(this.#_actions);
-			}
-			get ActionList()
-			{
-				return this.#_actions && Object.values(this.#_actions);
+				return this.#actionsRect;
 			}
 
-			get TextWidth()
+			// リストのキーを取得
+			// key = null: 最初のキーを返す
+			// key = 存在するキー: 次のキーを返す
+			// key = 最後のキー or 存在しないキー: nullを返す
+			ItemKey(key = null)
 			{
-				let item = this.ItemList?.reduce((a,b) => Math.max(a.TextWidth, b.TextWidth)).TextWidth || 0;
-				let action = this.ActionList?.reduce((a,b) => Math.map(a.TextWidth, b.TextWidth)).TextWidth || 0;
-
-				return Math.max(item, action);
+				let list = this.#itemKeyList;
+				if(!key)
+				{
+					return (list && list[0]) || null;
+				}
+				
+				return (list && list[list.indexOf(key) + 1]) || null;
+			}
+			ActionKey(key = null)
+			{
+				let list = this.#actionKeyList;
+				if(!key)
+				{
+					return (list && list[0]) || null;
+				}
+				
+				return (list && list[list.indexOf(key) + 1]) || null;
 			}
 
 			getItem(key)
@@ -305,24 +451,19 @@
 			}
 			getAction(key)
 			{
-				return this.#_actions && this.#_actions;
+				return this.#_actions && this.#_actions[key];
 			}
 		}
 		class ViewDataModel extends BaseModel
 		{
 			#_header = null;
 			#_body = null;
-			constructor(obj)
+			constructor(header, body)
 			{
 				super();
 
-				this.#_header = new ViewHeaderModel(obj.id, obj.title);
-				this.#_body = new ViewBodyModel(obj.items, obj.actions);
-
-				this.Width = Math.max(100, Math.max(this.Header.Width, this.Body.Width));
-				this.Height = Math.max(100, this.Header.Height + this.Body.Height);
-
-				this.Body.Position = new Point(0, this.Header.Height);
+				this.#_header = header;
+				this.#_body = body;
 			}
 
 			get Header()
@@ -333,45 +474,14 @@
 			{
 				return this.#_body;
 			}
-			get Items()
-			{
-				return this.#_body.RawItemList;
-			}
-			get ItemList()
-			{
-				return this.#_body.ItemList;
-			}
-			get Actions()
-			{
-				return this.#_body.RawActionList;
-			}
-			get ActionList()
-			{
-				return this.#_body.ActionList;
-			}
-
-			get ItemTextWidth()
-			{
-				return this.ItemList?.map((item) => item.TextWidth).reduce((a,b) => Math.max(a, b)) || 0;
-			}
-			get ActionTextWidth()
-			{
-				return this.ActionList?.map(item => item.TextWidth).reduce((a,b) => Math.max(a, b)) || 0;
-			}
-
-			get TextWidth() {
-				let header = this.#_header.TextWidth;
-				let body = this.#_body.TextWidth;
-
-				return Math.max(header, body);
-			}
 		}
 		class SettingDataModel
 		{
 			#_viewlist = null;
 			constructor(obj)
 			{
-				this.#_viewlist = Object.fromEntries(Object.entries(obj).map(([key, view]) => [key, new ViewDataModel(view)]));
+				let builder = new ViewDataModelListBuilder(obj);
+				this.#_viewlist = builder.ViewList;
 			}
 
 			get ViewKeyList() {
@@ -379,25 +489,7 @@
 			}
 
 			getView(key) {
-				let view = this.#_viewlist[key];
-				view.Position = this.getViewPosition(key);
-				return view;
-			}
-			getViewPosition(argKey) {
-				let pos = new Point(0, 0);
-				let margin = 10;
-
-				for (const key of this.ViewKeyList) {
-					if(key === argKey)
-					{
-						break;
-					}
-
-					let size = this.getView(key).Size;
-					pos = new Point(pos.X + size.Width + margin, pos.Y);
-				}
-
-				return pos;
+				return this.#_viewlist[key];
 			}
 		}
 	</script>
@@ -435,24 +527,6 @@
 		});
 		function SettingData() {
 			let data = JSON.parse(jsonStr)
-
-			data = Object.fromEntries(Object.entries(data).map(([key, view]) => {
-				if(view.items) {
-					view.items = Object.fromEntries(Object.entries(view.items).map(([key, item]) => {
-						item.label = `+ ${item.text}: ${item.type}`;
-						return [key, item];
-					}));
-				}
-				if(view.actions) {
-					view.actions = Object.fromEntries(Object.entries(view.actions).map(([key, act]) => {
-						act.label = `${ act.event } by ${act.item} to ${act.next}`;
-						return [key, act];
-					}));
-				}
-
-				return [key, view];
-			}));
-
 			let model = new SettingDataModel(data);
 
 			return model;
@@ -461,44 +535,75 @@
 	<script type="text/babel">
 		class ViewItem extends React.Component
 		{
-			get label() {
-				return this.props.item.Label;
+			get model()
+			{
+				return this.props.model;
 			}
 			render()
 			{
 				return (
-					<text>{this.label}</text>
+					<text x={this.model.X} y={this.model.Y} dominantBaseline={this.model.Label.DominantBaseLine}>
+						{ this.model.Label.Text }
+					</text>
 				);
 			}
 		}
-	</script>
-	<script type="text/babel">
-		class ViewItems extends React.Component
+		class ViewAction extends React.Component
 		{
-			get items() {
-				return Object.entries(this.props.items).map(([key, item]) => {
-					return <ViewItem key={key} item={item} />
-				});
+			get model()
+			{
+				return this.props.model;
 			}
 			render()
 			{
 				return (
-					<g className="view_items">
-						{this.items}
-					</g>
+					<text x={this.model.X} y={this.model.Y} dominantBaseline={this.model.Label.DominantBaseLine}>
+						{ this.model.Label.Text }
+					</text>
 				);
 			}
 		}
 		class ViewBody extends React.Component
 		{
-			constructor(props) {
-				super(props)
+			get model()
+			{
+				return this.props.model;
 			}
+
 			get items() {
-				return this.props.items ? <ViewItems items={this.props.items} /> : null;
+				let model = this.model;
+				let key = null;
+
+				let list = [];
+				while(key = model.ItemKey(key))
+				{
+					list.push(<ViewItem key={key} model={model.getItem(key)} />);
+				}
+
+				let rect = model.ItemListBoundingRect;
+
+				return (
+					<g className="view_items">
+						<rect x={rect.X} y={rect.Y} width={rect.Width} height={rect.Height} fill="none" stroke="#000" />
+						{ list }
+					</g>
+				);
 			}
 			get actions() {
-				return this.props.actions ? <ViewActions actions={this.props.actions} /> : null;
+				let model = this.model;
+				let key = null;
+
+				let list = [];
+				while(key = model.ActionKey(key))
+				{
+					list.push(<ViewAction key={key} model={model.getAction(key)} />);
+				}
+
+				return (
+					<g className="view_items">
+						{ list }
+					</g>
+				);
 			}
 			render()
 			{
@@ -510,43 +615,21 @@
 				);
 			}
 		}
-		class ViewActions extends React.Component
-		{
-			render()
-			{
-				return (
-					<g className="view_actions">
-						{
-							Object.entries(this.props.actions).map(([key, act]) => {
-								return <ViewAction key={key} action={act} />
-							})
-						}
-					</g>
-				);
-			}
-		}
-		class ViewAction extends React.Component
-		{
-			render()
-			{
-				return (
-					<text className="view_action">
-						{this.props.action.Label}
-					</text>
-				);
-			}
-		}
 	</script>
 	<script type="text/babel">
 		class ViewID extends React.Component
 		{
+			get model()
+			{
+				return this.props.model;
+			}
+
 			render()
 			{
 				return (
 					<g className="view_id">
-						<rect x={this.props.x} y={this.props.y} width={this.props.width} height={this.props.height} fill="none" stroke="#000" />
-						<text x={this.props.x} y={parseInt(this.props.y) + parseInt(this.props.height) / 2.0} dominantBaseline="middle">
-							{ this.props.id }
+						<text x={this.model.X} y={this.model.Y} dominantBaseline={this.model.DominantBaseLine}>
+							{ this.model.Text }
 						</text>
 					</g>
 				);
@@ -554,13 +637,16 @@
 		}
 		class ViewTitle extends React.Component
 		{
+			get model()
+			{
+				return this.props.model;
+			}
 			render()
 			{
 				return (
 					<g className="view_title">
-						<rect x={this.props.x} y={this.props.y} width={this.props.width} height={this.props.height} fill="none" stroke="#000" />
-						<text x={this.props.x} y={parseInt(this.props.y) + this.props.height / 2.0} dominantBaseline="middle">
-							{ this.props.title }
+						<text x={this.model.X} y={this.model.Y} dominantBaseline={this.model.DominantBaseLine}>
+							{ this.model.Text }
 						</text>
 					</g>
 				);
@@ -568,26 +654,18 @@
 		}
 		class ViewHeader extends React.Component
 		{
-			get width()
+			get model()
 			{
-				return this.props.width;
-			}
-			get height()
-			{
-				return this.props.header.Height;
-			}
-
-			get header()
-			{
-				return this.props.header;
+				return this.props.model;
 			}
 
 			render()
 			{
 				return (
 					<g className="view_header">
-						<ViewID x={this.props.x} y={this.props.y} width={this.props.width} height={this.header.IdTextSize.Height} id={this.props.header.ID}/>
-						<ViewTitle x={this.props.x} y={parseInt(this.props.y) + parseInt(this.header.IdTextSize.Height)} width={this.props.width} height={this.header.TitleTextSize.Height} title={this.props.header.Title} />
+						<rect x={this.model.X} y={this.model.Y} width={this.model.Width} height={this.model.Height} fill="none" stroke="#000" />
+						<ViewID model={this.model.ID} />
+						<ViewTitle model={this.model.Title} />
 					</g>
 				);
 			}
@@ -620,8 +698,8 @@
 				return (
 					<g className="view">
 						<rect x={this.x} y={this.y} width={this.width} height={this.height} fill="none" stroke="#000"></rect>
-						<ViewHeader x={this.x} y={this.y} width={this.width} height={this.height} header={this.model.Header} />
-						<ViewBody items={this.model.Items} actions={this.model.Actions} />
+						<ViewHeader model={this.model.Header} />
+						<ViewBody model={this.model.Body} />
 					</g>
 				);
 			}
