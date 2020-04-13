@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -16,31 +17,40 @@
 		}
 	</style>
 </head>
+
 <body>
 	<div id="root"></div>
 	<script type="text/babel"></script>
 	<script type="text/babel">
-		var viz = new Viz();
-		
-		viz.renderSVGElement('digraph { a -> b }')
-		.then(function(element) {
-			document.body.appendChild(element);
-		})
-		.catch(error => {
-			// Create a new Viz instance (@see Caveats page for more info)
-			viz = new Viz();
-
-			// Possibly display the error
-			console.error(error);
-		});
+		let dotStr = `
+			digraph { a -> b }
+		`;
 	</script>
 	<script type="text/babel">
-		class Views extends React.Component
-		{
-			render()
-			{
+		class Views extends React.Component {
+			constructor(props) {
+				super(props);
+				this.state = {
+					element: ""
+				};
+			}
+
+			componentDidMount() {
+				var viz = new Viz();
+				(async () => {
+					const elem = await viz.renderString(dotStr);
+					this.setState({
+						element: elem
+					});
+				})().catch(console.error);
+			}
+
+			render() {
 				return (
-					<div></div>
+					<div dangerouslySetInnerHTML={{
+						__html: this.state.element,
+					}}
+					></div>
 				);
 			}
 		}
@@ -52,4 +62,5 @@
 		);
 	</script>
 </body>
+
 </html>
