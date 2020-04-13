@@ -23,7 +23,20 @@
 	<script type="text/babel"></script>
 	<script type="text/babel">
 		let dotStr = `
-			digraph { a -> b }
+			digraph {
+				graph [
+					charset = "UTF-8",
+					rankdir = LR,
+					margin = 0.2
+				];
+				node [
+					shape = record,
+				]
+				ID0001 [label = "<pi>ID0001\\nサンプル画面\\l|+ Btn01: Button\\l+ Btn02: Button\\l+ Btn03: Button\\l|<pa>touch on Btn01 to ID0002"];
+				ID0002 [label = "<pi>ID0002\\nサブ画面\\l||"]
+
+				ID0001:pa -> ID0002:pi
+			}
 		`;
 	</script>
 	<script type="text/babel">
