@@ -1,13 +1,18 @@
-import * as React from 'react';
-import * as ReactDOM from 'react-dom';
+import React from 'react';
+import ReactDOM from 'react-dom';
+import PropTypes from 'prop-types';
 
-const Hello: React.FunctionComponent<{compiler: String, framework: string}> = (props) => {
+const Hello: React.FunctionComponent<{compiler: string, framework: string}> = (props) => {
 	return (
 		<div>
 			<div>{props.compiler}</div>
 			<div>{props.framework}</div>
 		</div>
 	)
+}
+Hello.propTypes = {
+	compiler: PropTypes.string.isRequired,
+	framework: PropTypes.string.isRequired
 }
 
 ReactDOM.render(

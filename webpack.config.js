@@ -8,6 +8,16 @@ module.exports = {
 	module: {
 		rules: [
 			{
+				enforce: "pre",
+				test: /\.[jt]sx?$/,
+				exclude: /node_modules/,
+				loader: "eslint-loader",
+				options: {
+					fix: true,
+					cache: true
+				}
+			},
+			{
 				test: /\.tsx?$/,
 				use: "ts-loader"
 			}
