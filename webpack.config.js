@@ -10,6 +10,12 @@ module.exports = {
 			{
 				enforce: "pre",
 				test: /\.[jt]sx?$/,
+				loader: 'prettier-loader',
+				exclude: /node_modules/,
+			},
+			{
+				enforce: "pre",
+				test: /\.[jt]sx?$/,
 				exclude: /node_modules/,
 				loader: "eslint-loader",
 				options: {
