@@ -1,25 +1,25 @@
 export interface ViewItemInterface {
-	type: string,
-	text: string
+	type: string;
+	text: string;
 }
 
 export interface ViewActionInterface {
-	item: string,
-	event: string,
-	next?: string
+	item: string;
+	event: string;
+	next?: string;
 }
 
 export interface ViewDataInterface {
-	id: string,
-	title: string,
+	id: string;
+	title: string;
 	items?: {
-		[key:string]: ViewItemInterface
-	},
+		[key: string]: ViewItemInterface;
+	};
 	actions?: {
-		[key: string]: ViewActionInterface
-	}
+		[key: string]: ViewActionInterface;
+	};
 }
 
 export default interface SettingDataInterface {
-	[key: string]: ViewDataInterface
+	[key: string]: ViewDataInterface;
 }

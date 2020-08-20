@@ -55,6 +55,21 @@ export default class ViewBodyModel extends BaseModel {
 		return (list && list[list.indexOf(key) + 1]) || null;
 	}
 
+	hasItems(): boolean {
+		if (this.items === null) {
+			return false;
+		}
+
+		return Object.keys(this.items).length > 0;
+	}
+	hasActions(): boolean {
+		if (this.actions === null) {
+			return false;
+		}
+
+		return Object.keys(this.actions).length > 0;
+	}
+
 	getItem(key: string): ViewItemModel | null {
 		return (this.items && this.items[key]) ?? null;
 	}
